@@ -6,10 +6,9 @@ Created on Tue Mar 15 09:04:07 2022
 @author: ga
 """
 import secrets
-from Crypto.Cipher import AES
-from Crypto.Cipher import Blowfish
-from base64 import b64encode
 import socket
+import AlgoGSM
+
 
 def startServer():
 
@@ -49,10 +48,8 @@ class ServerGSM():
         #2. Send to client
         self.conn.send(RAND.encode())
         #3. calculate challenge
-        blowfishChallenge= Blowfish.new(bytes.fromhex(self.ki), AES.MODE_ECB) # only one bloc
-        RAND_comp_byte=bytes.fromhex(RAND)[0:8] # compresse RAND to 8 bytes, to work with one bloc
-        SRES_byte=blowfishChallenge.encrypt(RAND_comp_byte);
-        #print("challenge", chalcypher_byte,len(chalcypher_byte))
+        SRES_byte=AlgoGSM.A3(bytes.fromhex(RAND), bytes.fromhex(self.ki))
+        #print("challenge", SRES_byte,len(SRES_byte))
         
         #4. control client
         dataRcv = self.conn.recv(self.buf);
@@ -68,9 +65,10 @@ class ServerGSM():
         self.conn.send(result.encode())
         
         #5. deriv Key
-        aesKc= AES.new(bytes.fromhex(self.ki), AES.MODE_ECB) # only one bloc
-        self.kc_byte=aesKc.encrypt(aesKc.encrypt(bytes.fromhex(RAND))); # todo: Use a different algo
+        self.kc_byte=AlgoGSM.A8(bytes.fromhex(RAND), bytes.fromhex(self.ki))
+        
         #print("Kc =",self.kc_byte)
+        
         
         return 1
     
@@ -84,27 +82,22 @@ class ServerGSM():
             if not nonce:
                 # if data is not received break
                 break
-            #2. init aes
-            aesCom = AES.new(self.kc_byte, AES.MODE_CTR, nonce=bytes.fromhex(nonce)) 
-            
-            #3. recieve data and decrypt
+            #2 recieve data and decrypt
             cypher_byte = self.conn.recv(self.buf)
+            print("cypher from client: ", cypher_byte) 
+            data= AlgoGSM.A5_dec(cypher_byte, self.kc_byte, bytes.fromhex(nonce))
+            print("Client says: ", data) 
             
-            data=aesCom.decrypt(cypher_byte);
-            print("from connected user: ", data.decode() ) 
-            
+            ##################################################################
             # message to client
             message = input(" -> ")  # take input
 
             #1. send IV from client
-            nonce = secrets.token_hex(8)
+            nonce = secrets.token_hex(4)
             self.conn.send(nonce.encode())
 
-            #2. init aes
-            aesCom = AES.new(self.kc_byte, AES.MODE_CTR, nonce=bytes.fromhex(nonce)) 
-            
-            #3. encrypt and send data 
-            cypher_byte = aesCom.encrypt(bytes(message,'utf-8'))
+            #2. encrypt and send data 
+            cypher_byte = AlgoGSM.A5_enc(message, self.kc_byte, bytes.fromhex(nonce))
             self.conn.send(cypher_byte)  # send message           
 
 
