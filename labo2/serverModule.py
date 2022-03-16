@@ -8,6 +8,7 @@ Created on Tue Mar 15 09:04:07 2022
 import secrets
 import socket
 import AlgoGSM
+import time
 
 
 def startServer():
@@ -19,7 +20,6 @@ def startServer():
 
     server_socket = socket.socket()  # get instance
     server_socket.bind((host, port))  # bind host address and port together
-
     server_socket.listen(1) # listen 1 client 
     conn, address = server_socket.accept()  # accept new connection
     
@@ -36,6 +36,8 @@ class ServerGSM():
     def __init__(self,conn,ki):
         self.state=0;
         self.buf = 1024
+        self.fileToSend = "serverSend.txt"
+        self.isfileToSend = True
         self.conn = conn
         self.ki=ki
         
@@ -66,6 +68,7 @@ class ServerGSM():
         
         #5. deriv Key
         self.kc_byte=AlgoGSM.A8(bytes.fromhex(RAND), bytes.fromhex(self.ki))
+        self.kc_startTime = time.time();
         
         #print("Kc =",self.kc_byte)
         
@@ -89,8 +92,21 @@ class ServerGSM():
             print("Client says: ", data) 
             
             ##################################################################
-            # message to client
-            message = input(" -> ")  # take input
+            # Atfer 20min necessary to regenerate kc, restart authentification
+            if (time.time()-self.kc_startTime) >= (20*60):
+                message = "regKi"
+                reAuth=True;
+            else:
+                reAuth=False;
+                # send file in the first step
+                if self.isfileToSend:
+                    with open (self.fileToSend, "r") as myfile:
+                        message=myfile.read().replace('\n', '')
+                    self.isfileToSend=False
+                else:
+                    # message to client
+                    message = input(" -> ")  # take input
+                    
 
             #1. send IV from client
             nonce = secrets.token_hex(4)
@@ -98,7 +114,13 @@ class ServerGSM():
 
             #2. encrypt and send data 
             cypher_byte = AlgoGSM.A5_enc(message, self.kc_byte, bytes.fromhex(nonce))
-            self.conn.send(cypher_byte)  # send message           
+            self.conn.send(cypher_byte)  # send message     
+            
+            #3. if necessary restart authentification
+            if reAuth:
+                print("Restart authentification process")
+                self.authClient()
+            
 
 
 

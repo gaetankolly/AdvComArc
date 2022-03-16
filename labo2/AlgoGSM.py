@@ -11,7 +11,7 @@ from base64 import b64encode
 
 #blowfish, 128 bit in, 32 bit out 
 def A3(plainText_byte,k):
-    blowfishChallenge= Blowfish.new(k, AES.MODE_ECB) # only one bloc
+    blowfishChallenge= Blowfish.new(k, Blowfish.MODE_ECB) # only one bloc
     # concatenate to 8bytes
     plainConc = bytearray(8)
     for i in range(0,8):

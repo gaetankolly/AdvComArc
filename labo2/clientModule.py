@@ -9,7 +9,6 @@ import secrets
 import socket
 import AlgoGSM
 
-
 def startCient():
 
     host = "localhost"
@@ -33,6 +32,8 @@ class ClientGSM():
     def __init__(self,conn,ki):
         self.state=0;
         self.buf = 1024
+        self.fileToSend = "clientSend.txt"
+        self.isfileToSend = True
         self.conn = conn
         self.ki=ki
         
@@ -61,7 +62,14 @@ class ClientGSM():
     def sartCom(self):
         
         while True:
-            message = input(" -> ")  # take input
+            # send file in the first step
+            if self.isfileToSend:
+                with open (self.fileToSend, "r") as myfile:
+                    message=myfile.read().replace('\n', '')
+                self.isfileToSend=False    
+                #print(message)
+            else:
+                message = input(" -> ")  # take input
             # todo:
             #with open('data.txt', 'r') as f:
             #    data = f.read()
@@ -90,7 +98,11 @@ class ClientGSM():
             cypher_byte = self.conn.recv(self.buf)
             print("cypher from server: ", cypher_byte) 
             data= AlgoGSM.A5_dec(cypher_byte, self.kc_byte, bytes.fromhex(nonce))
-            print("server says: ", data ) 
+            if data == "regKi":
+                print("Restart Authentification")
+                self.auth()
+            else:
+                print("server says: ", data ) 
             
 
 
